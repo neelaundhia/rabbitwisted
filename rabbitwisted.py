@@ -19,6 +19,7 @@ as defined by PREFETCH_COUNT
 
 import logging
 import sys
+import json
 
 from twisted.internet import protocol
 from twisted.application import internet
@@ -40,7 +41,7 @@ from tendril.config import MQ_SERVER_USERNAME
 from tendril.config import MQ_SERVER_PASSWORD
 from tendril.config import MQ_SERVER_EXCHANGE
 
-PREFETCH_COUNT = 2
+PREFETCH_COUNT = 50
 
 
 class PikaService(service.MultiService):
@@ -85,7 +86,8 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     name = 'AMQP:Protocol'
 
     def __init__(self, factory, parameters):
-        super().__init__(parameters)
+        self._channel = None
+        super(PikaProtocol, self).__init__(parameters)
         self.factory = factory
 
     @inlineCallbacks
@@ -146,9 +148,9 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
             msg,
         ) = item
 
-        log.msg(
-            '%s (%s): %s' % (deliver.exchange, deliver.routing_key, repr(msg)),
-            system='Pika:<=')
+        # log.msg(
+        #     '%s (%s): %s' % (deliver.exchange, deliver.routing_key, repr(msg)),
+        #     system='Pika:<=')
         d = defer.maybeDeferred(callback, item)
         d.addCallbacks(lambda _: channel.basic_ack(deliver.delivery_tag),
                        lambda _: channel.basic_nack(deliver.delivery_tag))
@@ -171,9 +173,9 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     @inlineCallbacks
     def send_message(self, exchange, routing_key, msg):
         """Send a single message."""
-        log.msg(
-            '%s (%s): %s' % (exchange, routing_key, repr(msg)),
-            system='Pika:=>')
+        # log.msg(
+        #     '%s (%s): %s' % (exchange, routing_key, repr(msg)),
+        #     system='Pika:=>')
         yield self._channel.exchange_declare(
             exchange=exchange,
             exchange_type=ExchangeType.topic,
@@ -245,10 +247,10 @@ ps.setServiceParent(application)
 class TestService(service.Service):
 
     def __init__(self):
-        super().__init__()
+        super(TestService, self).__init__()
         self.amqp = None
 
-    def task(self, _msg): # pylint: disable=R0201
+    def task(self, _msg):  # pylint: disable=R0201
         """
         Method for a time consuming task.
         This function must return a deferred. If it is successfull,
@@ -259,7 +261,8 @@ class TestService(service.Service):
         return task.deferLater(reactor, 2, lambda: log.msg("task completed"))
 
     def respond(self, msg):
-        self.amqp.send_message(MQ_SERVER_EXCHANGE, 'rabbitwisted', msg[3])
+        log.msg(json.loads(msg.body)['equipmentName'])
+        self.amqp.send_message(MQ_SERVER_EXCHANGE, 'rabbitwisted', msg.body)
 
     def startService(self):
         amqp_service = self.parent.getServiceNamed("amqp") # pylint: disable=E1111,E1121
@@ -271,4 +274,5 @@ ts.setServiceParent(application)
 
 observer = log.PythonLoggingObserver()
 observer.start()
-logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+logging.basicConfig(level=logging.CRITICAL, stream=sys.stdout)
+logging.getLogger('twisted').setLevel(logging.CRITICAL)
