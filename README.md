@@ -1,0 +1,2 @@
+# rabbitwisted
+RabbitMQ Twisted Adapter
