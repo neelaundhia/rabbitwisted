@@ -33,6 +33,13 @@ from pika import spec
 from pika.adapters import twisted_connection
 from pika.exchange_type import ExchangeType
 
+from tendril.config import MQ_SERVER_HOST
+from tendril.config import MQ_SERVER_PORT
+from tendril.config import MQ_SERVER_VIRTUALHOST
+from tendril.config import MQ_SERVER_USERNAME
+from tendril.config import MQ_SERVER_PASSWORD
+from tendril.config import MQ_SERVER_EXCHANGE
+
 PREFETCH_COUNT = 2
 
 
@@ -228,9 +235,10 @@ application = service.Application("pikaapplication")
 
 ps = PikaService(
     pika.ConnectionParameters(
-        host="localhost",
-        virtual_host="/",
-        credentials=pika.PlainCredentials("guest", "guest")))
+        host=MQ_SERVER_HOST,
+        port=MQ_SERVER_PORT,
+        virtual_host=MQ_SERVER_VIRTUALHOST,
+        credentials=pika.PlainCredentials(MQ_SERVER_USERNAME, MQ_SERVER_PASSWORD)))
 ps.setServiceParent(application)
 
 
@@ -251,16 +259,12 @@ class TestService(service.Service):
         return task.deferLater(reactor, 2, lambda: log.msg("task completed"))
 
     def respond(self, msg):
-        self.amqp.send_message('foobar', 'response', msg[3])
+        self.amqp.send_message(MQ_SERVER_EXCHANGE, 'rabbitwisted', msg[3])
 
     def startService(self):
         amqp_service = self.parent.getServiceNamed("amqp") # pylint: disable=E1111,E1121
         self.amqp = amqp_service.getFactory()
-        self.amqp.read_messages("foobar", "request1", self.respond)
-        self.amqp.read_messages("foobar", "request2", self.respond)
-        self.amqp.read_messages("foobar", "request3", self.respond)
-        self.amqp.read_messages("foobar", "task", self.task)
-
+        self.amqp.read_messages(MQ_SERVER_EXCHANGE, "monitoring.#", self.respond)
 
 ts = TestService()
 ts.setServiceParent(application)
