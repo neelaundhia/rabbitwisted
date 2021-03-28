@@ -1,6 +1,7 @@
-
-
 import json
+import pytz
+import datetime
+import dateutil.parser as dp
 
 from twisted.internet import reactor
 from twisted.application import service
@@ -19,41 +20,38 @@ ps = PikaService(default_pika_parameters())
 ps.setServiceParent(application)
 
 
-class ThroughputTest(service.Service, TwistedLoggerMixin):
+class rabbitwisted(service.Service, TwistedLoggerMixin):
     def __init__(self):
-        super(ThroughputTest, self).__init__()
+        super(rabbitwisted, self).__init__()
         self.amqp = None
-        self._write_index = 0
-        self._read_index = 0
+        self.local_pytz = pytz.timezone("Asia/Kolkata")
 
     def startService(self):
         amqp_service = self.parent.getServiceNamed("amqp")  # pylint: disable=E1111,E1121
         self.amqp = amqp_service.getFactory()
-        self.amqp.read_messages("testing.topic", "throughput", self.read)
-        deferLater(reactor, 1, self.dataGenerator)
+        self.amqp.read_messages("i4.topic", "monitoring.#", self.reshape)
+
+    def write(self, msg_reshaped):
+        return self.amqp.send_message("storage.topic", 'influxdb', msg_reshaped)
 
     @inlineCallbacks
-    def dataGenerator(self):
-        self._write_index = 0
-        self._read_index = 0
-        while True:
-            yield self.write()
-            yield deferLater(reactor, 0.00001, lambda: None)
+    def reshape(self, msg):
 
-    def write(self):
-        msg = json.dumps({'index': self._write_index})
-        self._write_index += 1
-        return self.amqp.send_message("testing.topic", 'throughput', msg)
+        received_dict = json.loads(msg.body)
 
-    def read(self, msg):
-        ri = json.loads(msg.body)['index']
-        if not ri == self._read_index:
-            self.log.error("Expecting {exp}, Got {index}", index=ri, exp=self._read_index)
-        else:
-            self.log.info("Publishing {index}, WQ Length: {wql} Current RI {ri}",
-                          index=self._write_index, ri=self._read_index, wql=len(self.amqp.queued_messages))
-        self._read_index += 1
+        if set(received_dict.keys()) == set(['equipmentName', 'tagName', 'tagDataType', 'tagValue', 'tagTimestamp']):
+            local_received_datetime = dp.parse(received_dict['tagTimestamp'])
+            utc_received_datetime = local_received_datetime.astimezone(pytz.utc)
+
+        msg_reshaped = "{tagName},equipmentName={equipmentName} tagName={tagName} tagDataType={tagDataType}, value={tagValue} {tagTimestamp}".format(tagName=received_dict['tagName'],
+                                                                                                                                                     equipmentName=received_dict['equipmentName'],
+                                                                                                                                                     tagDataType=received_dict['tagDataType'],
+                                                                                                                                                     tagValue=received_dict['tagValue'],
+                                                                                                                                                     tagTimestamp=utc_received_datetime.isoformat())
+        self.log.info(msg_reshaped)
+        # yield self.write(msg_reshaped)
+        yield deferLater(reactor, 0.05, lambda: None)
 
 
-ts = ThroughputTest()
+ts = rabbitwisted()
 ts.setServiceParent(application)
