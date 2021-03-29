@@ -42,14 +42,14 @@ class rabbitwisted(service.Service, TwistedLoggerMixin):
         if set(received_dict.keys()) == set(['equipmentName', 'tagName', 'tagDataType', 'tagValue', 'tagTimestamp']):
             local_received_datetime = dp.parse(received_dict['tagTimestamp'])
             utc_received_datetime = local_received_datetime.astimezone(pytz.utc)
-
-        msg_reshaped = "{tagName},equipmentName={equipmentName} tagName={tagName} tagDataType={tagDataType}, value={tagValue} {tagTimestamp}".format(tagName=received_dict['tagName'],
-                                                                                                                                                     equipmentName=received_dict['equipmentName'],
-                                                                                                                                                     tagDataType=received_dict['tagDataType'],
-                                                                                                                                                     tagValue=received_dict['tagValue'],
-                                                                                                                                                     tagTimestamp=utc_received_datetime.isoformat())
-        self.log.info(msg_reshaped)
-        # yield self.write(msg_reshaped)
+            if received_dict['tagDataType'] == "operationalStatus":
+                msg_reshaped = '{tagName},equipmentName={equipmentName},tagName={tagName},tagDataType={tagDataType} value={tagValue} {tagTimestamp}'.format(tagName=received_dict['tagName'],
+                                                                                                                                                            equipmentName=received_dict['equipmentName'],
+                                                                                                                                                            tagDataType=received_dict['tagDataType'],
+                                                                                                                                                            tagValue=received_dict['tagValue'],
+                                                                                                                                                            tagTimestamp=utc_received_datetime.isoformat())
+                self.log.info(msg_reshaped)
+        yield self.write(msg_reshaped)
         yield deferLater(reactor, 0.05, lambda: None)
 
 
