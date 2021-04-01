@@ -69,7 +69,7 @@ class rabbitwisted(service.Service, TwistedLoggerMixin):
                                                         tagTimestamp=int(utc_received_datetime.timestamp()*1000*1000*1000))
                 self.log.info(msg_reshaped)
         yield self.write(msg_reshaped)
-        yield deferLater(reactor, 0.1, lambda: None)
+        yield deferLater(reactor, 0.05, lambda: None)
 
 
 ts = rabbitwisted()
