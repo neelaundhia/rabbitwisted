@@ -1,7 +1,5 @@
 import json
-import pytz
-import datetime
-import dateutil.parser as dp
+import arrow
 
 from twisted.internet import reactor
 from twisted.application import service
@@ -24,7 +22,6 @@ class rabbitwisted(service.Service, TwistedLoggerMixin):
     def __init__(self):
         super(rabbitwisted, self).__init__()
         self.amqp = None
-        self.local_pytz = pytz.timezone("Asia/Kolkata")
 
     def startService(self):
         amqp_service = self.parent.getServiceNamed("amqp")  # pylint: disable=E1111,E1121
@@ -40,8 +37,8 @@ class rabbitwisted(service.Service, TwistedLoggerMixin):
         received_dict = json.loads(msg.body)
 
         if set(received_dict.keys()) == set(['equipmentName', 'tagName', 'tagDataType', 'tagValue', 'tagTimestamp']):
-            local_received_datetime = dp.parse(received_dict['tagTimestamp'])
-            utc_received_datetime = local_received_datetime.astimezone(pytz.utc)
+            local_received_datetime = arrow.get(received_dict['tagTimestamp'])
+            utc_received_datetime = local_received_datetime.to('UTC')
             if received_dict['tagDataType'] == "operationalStatus":
                 msg_reshaped = '{tagName},equipmentName={equipmentName},' \
                                'tagName={tagName},' \
