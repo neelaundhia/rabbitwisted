@@ -35,6 +35,7 @@ class rabbitwisted(service.Service, TwistedLoggerMixin):
     def reshape(self, msg):
 
         received_dict = json.loads(msg.body)
+        msg_reshaped = ""
 
         #daqEngine Message
         if set(received_dict.keys()) == set(['equipmentName', 'tagName', 'tagDataType', 'tagValue', 'tagTimestamp']):
@@ -44,32 +45,75 @@ class rabbitwisted(service.Service, TwistedLoggerMixin):
             #operationalStatus
             if received_dict['tagDataType'] == "operationalStatus":
                 if received_dict['tagValue'] == "offline":
-                    tag_value_integer = 0
+                    tag_value = 0
                 elif received_dict['tagValue'] == "emergency_signal":
-                    tag_value_integer = 1
+                    tag_value = 1
                 elif received_dict['tagValue'] == "fault_alarm":
-                    tag_value_integer = 2
+                    tag_value = 2
                 elif received_dict['tagValue'] == "idle":
-                    tag_value_integer = 3
+                    tag_value = 3
                 elif received_dict['tagValue'] == "operational_manual":
-                    tag_value_integer = 4
+                    tag_value = 4
                 elif received_dict['tagValue'] == "operational_auto":
-                    tag_value_integer = 5
+                    tag_value = 5
                 else:
                     self.log.info("Malformed tagValue for operationalStatus tag.")
                 msg_reshaped = '{tagName},' \
                                'equipmentName={equipmentName},' \
                                'tagName={tagName},' \
                                'tagDataType={tagDataType} ' \
-                               'value={tagValue} ' \
-                               '{tagTimestamp}'.format(tagName=received_dict['tagName'],
-                                                        equipmentName=received_dict['equipmentName'],
-                                                        tagDataType=received_dict['tagDataType'],
-                                                        tagValue=tag_value_integer,
-                                                        tagTimestamp=int(utc_received_datetime.timestamp()*1000*1000*1000))
-                self.log.info(msg_reshaped)
-        yield self.write(msg_reshaped)
-        yield deferLater(reactor, 0.05, lambda: None)
+                               'tagValue={tagValue} ' \
+                               '{tagTimestamp}'.format(equipmentName=received_dict['equipmentName'],
+                                                       tagName=received_dict['tagName'].replace(' ', ''),
+                                                       tagDataType=received_dict['tagDataType'],
+                                                       tagValue=tag_value,
+                                                       tagTimestamp=int(
+                                                            utc_received_datetime.timestamp() * 1000 * 1000 * 1000))
+                
+            #boolean
+            if received_dict['tagDataType'] == "boolean":
+                msg_reshaped = '{tagName},' \
+                               'equipmentName={equipmentName},' \
+                               'tagName={tagName},' \
+                               'tagDataType={tagDataType} ' \
+                               'tagValue={tagValue} ' \
+                               '{tagTimestamp}'.format(equipmentName=received_dict['equipmentName'],
+                                                       tagName=received_dict['tagName'].replace(' ', ''),
+                                                       tagDataType=received_dict['tagDataType'],
+                                                       tagValue=received_dict['tagValue'],
+                                                       tagTimestamp=int(
+                                                           utc_received_datetime.timestamp() * 1000 * 1000 * 1000))
+
+            #integer or decimal
+            if received_dict['tagDataType'] == "integer" or received_dict['tagDataType'] == "decimal":
+                msg_reshaped = '{tagName},' \
+                               'equipmentName={equipmentName},' \
+                               'tagName={tagName},' \
+                               'tagDataType={tagDataType} ' \
+                               'tagValue={tagValue} ' \
+                               '{tagTimestamp}'.format(equipmentName=received_dict['equipmentName'],
+                                                       tagName=received_dict['tagName'].replace(' ', ''),
+                                                       tagDataType=received_dict['tagDataType'],
+                                                       tagValue=received_dict['tagValue'],
+                                                       tagTimestamp=int(
+                                                           utc_received_datetime.timestamp() * 1000 * 1000 * 1000))
+            # string
+            if received_dict['tagDataType'] == "string":
+                msg_reshaped = '{tagName},' \
+                               'equipmentName={equipmentName},' \
+                               'tagName={tagName},' \
+                               'tagDataType={tagDataType} ' \
+                               'tagValue=\"{tagValue}\" ' \
+                               '{tagTimestamp}'.format(equipmentName=received_dict['equipmentName'],
+                                                       tagName=received_dict['tagName'].replace(' ', ''),
+                                                       tagDataType=received_dict['tagDataType'],
+                                                       tagValue=received_dict['tagValue'],
+                                                       tagTimestamp=int(
+                                                           utc_received_datetime.timestamp() * 1000 * 1000 * 1000))
+        if msg_reshaped != "":
+            self.log.info(msg_reshaped)
+            yield self.write(msg_reshaped)
+            yield deferLater(reactor, 0.05, lambda: None)
 
 
 ts = rabbitwisted()
