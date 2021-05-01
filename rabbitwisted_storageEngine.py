@@ -11,7 +11,7 @@ from tendril.asynchronous.services.mq import default_pika_parameters
 
 from tendril.asynchronous.utils.logger import TwistedLoggerMixin
 
-_application_name = "throughput-test"
+_application_name = "storage-engine"
 application = service.Application(_application_name)
 
 ps = PikaService(default_pika_parameters())
