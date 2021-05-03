@@ -29,7 +29,7 @@ class rabbitwisted(service.Service, TwistedLoggerMixin):
         self.amqp.read_messages("i4.topic", "monitoring.#", self.reshape)
 
     def write(self, msg_reshaped):
-        return self.amqp.send_message("storage.topic", 'influxdb', msg_reshaped)
+        return self.amqp.send_message(exchange="storage.topic", routing_key='influxdb', message=msg_reshaped)
 
     @inlineCallbacks
     def reshape(self, msg):
