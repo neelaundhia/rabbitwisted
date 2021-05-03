@@ -1,10 +1,8 @@
 import json
 import arrow
 
-from twisted.internet import reactor
 from twisted.application import service
-from twisted.internet.task import deferLater
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet import defer
 
 from tendril.asynchronous.services.mq import PikaService
 from tendril.asynchronous.services.mq import default_pika_parameters
@@ -31,7 +29,7 @@ class rabbitwisted(service.Service, TwistedLoggerMixin):
     def write(self, msg_reshaped):
         return self.amqp.send_message(exchange="storage.topic", routing_key='influxdb', message=msg_reshaped)
 
-    @inlineCallbacks
+    @defer.inlineCallbacks
     def reshape(self, msg):
 
         received_dict = json.loads(msg.body)
@@ -113,7 +111,7 @@ class rabbitwisted(service.Service, TwistedLoggerMixin):
         if msg_reshaped != "":
             self.log.info(msg_reshaped)
             yield self.write(msg_reshaped)
-            yield deferLater(reactor, 0.05, lambda: None)
+            # yield defer.succeed(True)
 
 
 ts = rabbitwisted()
